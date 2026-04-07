@@ -241,10 +241,7 @@ def account_summary():
 
 SolarWinds **Span Waterfall** 에서 이렇게 보입니다:
 
-```
-account-summary    ████████████████████████████  3,247ms
-  └─ db-query-slow ████████████████████████████  3,205ms  ← 여기!
-```
+![Span Waterfall](./images/image3.png)
 
 ---
 
@@ -454,18 +451,7 @@ opentelemetry-exporter-otlp-proto-grpc
 
 ### 🌡️ Duration Heatmap — salary_mode 전/후
 
-```
-응답시간
-  ↑
-5s │                        ░░▒▒▓▓██████▓▓▒▒░   ← salary_mode ON
-4s │                        ░░▒▒▓▓██████▓▓▒▒░
-3s │                     ░░░░▒▒▓▓▓███████▓▒▒
-2s │               ░░░░░░░░░░░░░░░▒▒▒▒▒▒▒▒░
-1s │
-0s │ ░░░░░░░░░░░░░░           ░░░░░░░░░░        ← salary_mode OFF
-   └──────────────────────────────────────────→ 시간
-               ▲ salary_mode ON
-```
+![Duration Heatmap](./images/image1.png)
 
 점들이 **아래(빠름) → 위(느림)** 로 폭발적으로 퍼지는 순간이 장애 시작 시점입니다.
 
@@ -473,75 +459,38 @@ opentelemetry-exporter-otlp-proto-grpc
 
 ### 🕵️ Span Waterfall — 병목 구간 특정
 
-```
-[GET /api/account-summary]   ████████████████████████████████  3,247ms
-  ├─ account-summary         ████████████████████████████████  3,243ms
-  │    ├─ db-query-slow      ███████████████████████████████   3,205ms  ⬅️ 병목!
-  │    │    span.attribute:
-  │    │      db.slow_reason = "salary_batch_overload"
-  │    │      db.delay_seconds = 3.21
-  │    └─ (response prep)    █  38ms
-  └─ (Flask overhead)        █  4ms
-```
+![Span Waterfall](./images/image3.png)
+
+`db-query-slow` span이 전체 응답시간의 대부분을 차지하는 것이 확인됩니다.
 
 ---
 
-### 📊 Metrics 그래프 — AVG 응답시간 급증
+### 📊 Metrics — Duration 분포 히스토그램
 
-```
-응답시간(ms)
-  ↑
-4000│               ╭────────────────────────╮
-3000│           ╭───╯                        ╰───╮
-2000│       ╭───╯                                ╰──╮
-1000│   ╭───╯                                      ╰──────╮
- 200│───╯                                                  ╰────────
-   └────────────────────────────────────────────────────────────→ 시간
-              ↑ salary_mode ON                ↑ salary_mode OFF
-         알람 발생 (AVG > 2,000ms)
-```
+![Metrics Histogram](./images/image2.png)
+
+salary_mode ON 구간에서 응답시간 분포가 상위 구간으로 집중되는 것이 확인됩니다.
 
 ---
 
 ### 📄 Logs — trace_id로 검색
 
-SolarWinds Logs 탭에서 `trace_id=a3f2c1d8...` 로 검색:
+SolarWinds Logs 탭에서 `trace_id` 값으로 검색하면 해당 요청의 로그만 필터링됩니다:
 
-```log
-14:23:44  WARNING  [trace_id=a3f2c1d8e9f04b12...] DB 쿼리 지연 — 3.2초 예상 (원인: 월급날 배치 과부하)
-14:23:47  INFO     [trace_id=a3f2c1d8e9f04b12...] 잔액 조회 완료 — ₩5,340,000 (3247ms)
-```
+![Logs trace_id](./images/image4.png)
 
 `/logs` 엔드포인트로 직접 확인도 가능합니다:
 
 ```bash
 curl http://localhost:5000/logs | python -m json.tool
-
-# 응답 예시
-{
-  "logs": [
-    {
-      "timestamp": "14:23:44.821",
-      "level": "WARNING",
-      "message": "[trace_id=a3f2c1d8...] DB 쿼리 지연 — 3.2초 예상",
-      "trace_id": "a3f2c1d8e9f04b12..."
-    }
-  ]
-}
 ```
 
 ---
 
-### 🔔 Alert 설정
+### 🔔 Alert — 응답시간 이상 시 이메일 자동 수신
 
-| 항목 | 설정값 |
-|------|--------|
-| 조건 | `http_response_time_ms` 평균 > **2,000ms** |
-| Duration Condition | **3~5분** (잦은 알람 방지) |
-| 알람 채널 | Email |
-
-> Duration Condition을 0분으로 설정하면 느린 요청 1건마다 알람이 발생합니다.
-> 3~5분으로 설정하여 실제 장애 상황에서만 알람이 오도록 조정하세요.
+SolarWinds에서 `http_response_time_ms` 평균이 임계값을 초과하면 **이메일 알람이 자동 발송**됩니다.
+salary_mode ON 이후 부하 테스트 중 실제로 알람 메일이 수신되는 것을 확인했습니다.
 
 ---
 
