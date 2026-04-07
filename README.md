@@ -280,10 +280,9 @@ logger.addHandler(LogBufferHandler())  # /logs 엔드포인트
 
 ---
 
-### 3️⃣ `get_trace_id()` — SolarWinds 무료 플랜 Log 연결 핵심
+### 3️⃣ `get_trace_id()` — Log에 trace_id 직접 삽입
 
-SolarWinds **무료 플랜**은 Trace ↔ Log 자동 연결을 제공하지 않습니다.
-`trace_id`를 로그 **텍스트에 직접 삽입**하여 수동 검색으로 연결합니다.
+`trace_id`를 로그 **텍스트에 직접 삽입**하여 Trace와 Log를 연결합니다.
 
 ```python
 def get_trace_id() -> str:
@@ -449,27 +448,27 @@ opentelemetry-exporter-otlp-proto-grpc
 
 ## 📈 SolarWinds 관찰 결과
 
-### 🌡️ Duration Heatmap — salary_mode 전/후
+### 📊 Metrics — Duration Heatmap
 
-![Duration Heatmap](./images/image1.png)
+salary_mode ON 구간에서 응답시간 분포가 상위 구간으로 집중되는 것이 확인됩니다.
 
-점들이 **아래(빠름) → 위(느림)** 로 폭발적으로 퍼지는 순간이 장애 시작 시점입니다.
+![Metrics Heatmap](./images/image2.png)
 
 ---
 
-### 🕵️ Span Waterfall — 병목 구간 특정
+### 🕵️ Traces — Exemplars 산점도
 
-![Span Waterfall](./images/image3.png)
+개별 요청의 응답시간이 점으로 표시되며, salary_mode ON 시점부터 점들이 위쪽으로 퍼지는 것을 확인할 수 있습니다.
+
+![Traces Exemplars](./images/image1.png)
+
+---
+
+### 🔍 Span Waterfall — 병목 구간 특정
 
 `db-query-slow` span이 전체 응답시간의 대부분을 차지하는 것이 확인됩니다.
 
----
-
-### 📊 Metrics — Duration 분포 히스토그램
-
-![Metrics Histogram](./images/image2.png)
-
-salary_mode ON 구간에서 응답시간 분포가 상위 구간으로 집중되는 것이 확인됩니다.
+![Span Waterfall](./images/image3.png)
 
 ---
 
@@ -487,10 +486,12 @@ curl http://localhost:5000/logs | python -m json.tool
 
 ---
 
-### 🔔 Alert — 응답시간 이상 시 이메일 자동 수신
+### 🔔 Alert — 이메일 알람 수신
 
-SolarWinds에서 `http_response_time_ms` 평균이 임계값을 초과하면 **이메일 알람이 자동 발송**됩니다.
-salary_mode ON 이후 부하 테스트 중 실제로 알람 메일이 수신되는 것을 확인했습니다.
+응답시간이 임계값을 초과하면 SolarWinds가 이메일로 자동 알람을 발송합니다.
+부하 테스트 중 실제로 아래와 같은 알람 메일이 수신됐습니다.
+
+![Alert Email](./images/image5.png)
 
 ---
 
@@ -526,18 +527,10 @@ flowchart TD
 
 ---
 
-## ⚠️ SolarWinds 무료 플랜 한계
+## 💬 비고
 
-| 기능 | 무료 | 유료 |
-|------|:----:|:----:|
-| Duration Heatmap | ✅ | ✅ |
-| Span Waterfall | ✅ | ✅ |
-| Alert (Email) | ✅ | ✅ |
-| Trace ↔ Log 자동 연결 | ❌ | ✅ |
-| TRANSACTIONS 탭 | ❌ | ✅ |
-| p95/p99 Metrics 드롭다운 | ❌ | ✅ |
-
-> **무료 플랜 우회 전략:** `trace_id`를 로그 텍스트에 직접 삽입 → 수동 검색으로 연결
+Trace와 Log의 연결은 `trace_id`를 로그 메시지 텍스트에 직접 삽입하는 방식으로 구현했습니다.
+p95 수치는 SolarWinds Metrics 대신 k6 터미널 출력에서 확인했습니다.
 
 ---
 
