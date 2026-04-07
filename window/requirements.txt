@@ -1,0 +1,15 @@
+# 우리FISA 은행 API 서버 의존성
+# OTel SDK 직접 사용 (opentelemetry-instrument 자동계측 아님)
+
+flask
+psutil
+
+# OTel 핵심 API + SDK
+opentelemetry-api
+opentelemetry-sdk
+
+# Flask HTTP 요청 자동 span 생성 (FlaskInstrumentor)
+opentelemetry-instrumentation-flask
+
+# OTel Collector로 gRPC 전송
+opentelemetry-exporter-otlp-proto-grpc

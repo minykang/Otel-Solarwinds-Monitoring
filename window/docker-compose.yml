@@ -1,0 +1,38 @@
+version: '3.8'
+
+# ── 우리FISA 은행 OTel 스택 ────────────────────────────────────────
+#
+# 서비스 구성:
+#   bank-app       → Flask 은행 API (port 5000)
+#   otel-collector → OTel Collector (port 4317) → SolarWinds 전송
+#
+# 데이터 흐름:
+#   사용자 → bank-app:5000 → telemetry.py → otel-collector:4317 → SolarWinds
+
+services:
+
+  # ── 은행 앱 ──────────────────────────────────────────────────────
+  bank-app:
+    build: .                          # 현재 폴더에서 Dockerfile로 빌드
+    image: fisa-linux-bank:local
+    container_name: bank-app
+    ports:
+      - "5000:5000"
+    environment:
+      # OTel Collector 주소 — 같은 compose 네트워크에서 서비스명으로 접근
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    depends_on:
+      - otel-collector
+    restart: unless-stopped
+
+  # ── OTel Collector ───────────────────────────────────────────────
+  # contrib 이미지: SolarWinds로 OTLP 전송 지원
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: otel-collector
+    command: ["--config=/etc/otel-config.yaml"]
+    volumes:
+      - ./otel-config.yaml:/etc/otel-config.yaml
+    ports:
+      - "4317:4317"   # gRPC (bank-app → collector)
+    restart: unless-stopped

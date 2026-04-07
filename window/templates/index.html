@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>우리FISA 은행</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: #f0f4f8;
+  font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  min-height: 100vh;
+}
+
+/* ── 상단 바 ── */
+.topbar {
+  background: linear-gradient(135deg, #003087 0%, #0057d8 100%);
+  color: #fff;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.topbar h1 { font-size: 17px; font-weight: 700; }
+.topbar .date { font-size: 12px; opacity: 0.75; }
+
+/* ── 월급날 배너 (월급날 모드 ON시 표시) ── */
+.salary-banner {
+  background: #c62828;
+  color: #fff;
+  text-align: center;
+  padding: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  display: none;
+  animation: blink 1.2s ease-in-out infinite;
+}
+.salary-banner.show { display: block; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.65} }
+
+/* ── 메인 컨테이너 ── */
+.container {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 20px 16px;
+}
+
+/* ── 계좌 카드 ── */
+.card {
+  background: linear-gradient(145deg, #003087, #0057d8);
+  color: #fff;
+  border-radius: 20px;
+  padding: 26px 24px;
+  margin-bottom: 14px;
+  box-shadow: 0 8px 32px rgba(0, 48, 135, 0.28);
+  position: relative;
+  overflow: hidden;
+}
+.card::after {
+  content: '';
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 140px; height: 140px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 50%;
+}
+.card .bank-label { font-size: 11px; opacity: 0.7; margin-bottom: 6px; }
+.card .user-name  { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+.card .account-no { font-size: 12px; opacity: 0.75; margin-bottom: 22px; }
+.card .balance-label { font-size: 11px; opacity: 0.7; }
+.card .balance {
+  font-size: 32px;
+  font-weight: 800;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: -0.5px;
+}
+.card .balance .unit { font-size: 18px; font-weight: 500; }
+
+/* 스피너 */
+.spinner {
+  width: 22px; height: 22px;
+  border: 2.5px solid rgba(255,255,255,0.25);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: none;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── 응답시간 태그 ── */
+.response-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 10px;
+  margin-top: 12px;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.response-badge.show { opacity: 1; }
+.response-badge.fast { background: rgba(76,175,80,0.2); color: #a5d6a7; }
+.response-badge.slow { background: rgba(244,67,54,0.2); color: #ef9a9a; animation: badge-pulse 0.8s infinite; }
+@keyframes badge-pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+/* ── 새로고침 버튼 ── */
+.refresh-btn {
+  width: 100%;
+  padding: 16px;
+  background: #fff;
+  color: #003087;
+  border: none;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-bottom: 10px;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+}
+.refresh-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(0,48,135,0.18);
+}
+.refresh-btn:active:not(:disabled) { transform: translateY(0); }
+.refresh-btn:disabled {
+  background: #e3f0ff;
+  color: #90b4e0;
+  cursor: not-allowed;
+}
+.refresh-btn.loading {
+  background: #1565c0;
+  color: #fff;
+}
+
+/* ── 상태 메시지 ── */
+.status-box {
+  background: #fff;
+  border-radius: 12px;
+  padding: 13px 16px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: #546e7a;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+.status-box.loading { color: #1565c0; background: #e3f0ff; }
+.status-box.success { color: #2e7d32; background: #e8f5e9; }
+.status-box.slow    { color: #e65100; background: #fff3e0; }
+.status-box.error   { color: #c62828; background: #ffebee; }
+
+/* ── 통계 패널 ── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.stat-box {
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px 10px;
+  text-align: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.stat-box .s-val {
+  font-size: 19px;
+  font-weight: 800;
+  color: #1a237e;
+  display: block;
+}
+.stat-box .s-label {
+  font-size: 10px;
+  color: #90a4ae;
+  margin-top: 3px;
+  display: block;
+}
+.stat-box.highlight .s-val { color: #e65100; }
+
+/* ── 안내 ── */
+.hint {
+  background: #fff;
+  border-radius: 12px;
+  padding: 13px 16px;
+  font-size: 11px;
+  color: #90a4ae;
+  line-height: 1.7;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.hint strong { color: #546e7a; }
+</style>
+</head>
+<body>
+
+<!-- 상단 바 -->
+<div class="topbar">
+  <h1>🏦 우리FISA 은행</h1>
+  <span class="date" id="dateStr">—</span>
+</div>
+
+<!-- 월급날 배너 -->
+<div class="salary-banner" id="salaryBanner">
+  🔥 오늘은 25일 월급날! 서버에 접속자가 폭증하고 있습니다...
+</div>
+
+<div class="container">
+
+  <!-- 계좌 카드 -->
+  <div class="card">
+    <div class="bank-label">우리FISA 은행 입출금통장</div>
+    <div class="user-name">김민영 님</div>
+    <div class="account-no">123-456-78-90</div>
+    <div class="balance-label">현재 잔액</div>
+    <div class="balance">
+      <span class="unit">₩</span>
+      <span id="balanceVal">5,430,000</span>
+      <div class="spinner" id="spinner"></div>
+    </div>
+    <!-- 서버 응답시간 태그 — 느리면 빨간색으로 변함 -->
+    <div class="response-badge" id="responseBadge">
+      <span id="badgeText">—</span>
+    </div>
+  </div>
+
+  <!-- 상태 메시지 -->
+  <div class="status-box" id="statusBox">
+    새로고침 버튼을 눌러 잔액을 확인하세요
+  </div>
+
+  <!-- 새로고침 버튼 -->
+  <button class="refresh-btn" id="refreshBtn" onclick="refreshBalance()">
+    <span id="btnIcon">🔄</span>
+    <span id="btnText">잔액 새로고침</span>
+  </button>
+
+  <!-- 통계 (누적) -->
+  <div class="stats-grid">
+    <div class="stat-box">
+      <span class="s-val" id="totalReq">0</span>
+      <span class="s-label">총 요청</span>
+    </div>
+    <div class="stat-box highlight" id="slowBox">
+      <span class="s-val" id="slowCount">0</span>
+      <span class="s-label">지연 발생</span>
+    </div>
+    <div class="stat-box">
+      <span class="s-val" id="avgMs">—</span>
+      <span class="s-label">평균 응답(ms)</span>
+    </div>
+  </div>
+
+  <!-- 안내 -->
+  <div class="hint">
+    <strong>📊 OpenTelemetry 관찰 포인트</strong><br>
+    이 버튼 한 번 = SolarWinds에 <strong>Trace 1개</strong> 생성<br>
+    응답 느림 (🔴) = <strong>db-query-slow</strong> 스팬 발생<br>
+    k6 1000명 동시 접속 시 → 메트릭 <strong>급증</strong> 확인 가능
+  </div>
+
+</div>
+
+<script>
+// ── 상태 추적 ────────────────────────────────────
+let totalRequests = 0;
+let slowRequests  = 0;
+let totalMs       = 0;
+let isLoading     = false;
+
+// ── 날짜 표시 ────────────────────────────────────
+function updateDate() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  document.getElementById('dateStr').textContent =
+    `${now.getFullYear()}.${pad(now.getMonth()+1)}.${pad(now.getDate())} ` +
+    `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
+updateDate();
+setInterval(updateDate, 30000);
+
+// ── 월급날 모드 상태 폴링 ────────────────────────
+async function checkSalaryMode() {
+  try {
+    const r = await fetch('/api/salary-mode');
+    const d = await r.json();
+    document.getElementById('salaryBanner').classList.toggle('show', d.active);
+  } catch(e) {}
+}
+checkSalaryMode();
+setInterval(checkSalaryMode, 3000);
+
+// ── 잔액 새로고침 ────────────────────────────────
+async function refreshBalance() {
+  if (isLoading) return;
+  isLoading = true;
+
+  const btn    = document.getElementById('refreshBtn');
+  const badge  = document.getElementById('responseBadge');
+
+  // 로딩 UI 시작
+  btn.disabled = true;
+  btn.classList.add('loading');
+  document.getElementById('btnIcon').textContent = '⏳';
+  document.getElementById('btnText').textContent = '서버에서 조회 중...';
+  document.getElementById('spinner').style.display = 'block';
+  badge.classList.remove('show');
+  setStatus('💬 DB에서 잔액 조회 중... (OTel Trace 생성 중)', 'loading');
+
+  const startTime = Date.now();
+
+  try {
+    const res = await fetch('/api/account-summary');
+    const elapsed = Date.now() - startTime;
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    // 잔액 업데이트
+    document.getElementById('balanceVal').textContent = data.balance;
+
+    // 통계 업데이트
+    totalRequests++;
+    totalMs += elapsed;
+    if (data.slow) slowRequests++;
+
+    document.getElementById('totalReq').textContent = totalRequests;
+    document.getElementById('slowCount').textContent = slowRequests;
+    document.getElementById('avgMs').textContent =
+      Math.round(totalMs / totalRequests);
+
+    // 응답 시간 배지
+    const isSlow = elapsed > 1000;
+    badge.className = 'response-badge show ' + (isSlow ? 'slow' : 'fast');
+    document.getElementById('badgeText').textContent =
+      (isSlow ? '🔴 느림 ' : '🟢 정상 ') + elapsed + 'ms';
+
+    // 상태 메시지
+    if (isSlow) {
+      setStatus(
+        `⚠️ DB 지연 감지 — ${elapsed}ms 소요. SolarWinds에서 trace 확인!`,
+        'slow'
+      );
+    } else {
+      setStatus(`✅ 조회 완료 (${elapsed}ms) — Trace ID는 /logs 에서 확인`, 'success');
+    }
+
+  } catch (err) {
+    setStatus('❌ 서버 오류: ' + err.message, 'error');
+    const badge = document.getElementById('responseBadge');
+    badge.className = 'response-badge show slow';
+    document.getElementById('badgeText').textContent = '❌ 오류';
+  }
+
+  // 로딩 UI 종료
+  document.getElementById('spinner').style.display = 'none';
+  btn.disabled = false;
+  btn.classList.remove('loading');
+  document.getElementById('btnIcon').textContent = '🔄';
+  document.getElementById('btnText').textContent = '잔액 새로고침';
+  isLoading = false;
+}
+
+function setStatus(msg, type) {
+  const el = document.getElementById('statusBox');
+  el.textContent = msg;
+  el.className = 'status-box ' + (type || '');
+}
+</script>
+</body>
+</html>

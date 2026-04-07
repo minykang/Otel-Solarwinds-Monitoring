@@ -1,0 +1,41 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+  # 🐧🪟 호스트 자원(CPU, 메모리 등)을 긁어오는 수집기 추가
+  hostmetrics:
+    collection_interval: 10s
+    scrapers:
+      cpu:
+      memory:
+      disk:
+      network:
+
+processors:
+  batch:
+
+exporters:
+  otlp:
+    endpoint: "otel.collector.ap-01.cloud.solarwinds.com:443"
+    tls:
+      insecure: false
+    headers:
+      # 민영 님의 솔라윈즈 API 토큰
+      authorization: "Bearer lXugTlhtYtUdL9R5FwLkdWJDosfY00GkKVonv4EOzN0gfUFx01h3KnPdQNztB0cZ22JF1bw"
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp]
+    metrics:
+      # ★ hostmetrics를 추가하여 인프라 지표도 함께 전송
+      receivers: [otlp, hostmetrics]
+      processors: [batch]
+      exporters: [otlp]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp]
